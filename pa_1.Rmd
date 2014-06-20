@@ -1,0 +1,62 @@
+---
+title: "ML Algorithm to predict execution of barbell lifts"
+output: html_document
+---
+
+Import the training and testing datasets.
+
+```{r importData}
+training <- as.data.frame(read.csv("pml-training.csv", header=TRUE, na.strings= c("NA", "#DIV/0!")))
+testing <- as.data.frame(read.csv("pml-testing.csv", header=TRUE, na.strings= c("NA", "#DIV/0!")))
+```
+
+Remove predictors with NA-values from train and test-dataset.
+
+```{r drop_na}
+straining <- training[,which(unlist(lapply(training, function(x) !any(is.na(x)))))]
+stesting <- testing[,which(unlist(lapply(testing, function(x) !any(is.na(x)))))]
+```
+
+Remove predictors with no relevance to barbell lifting.
+
+```{r drop_predictors}
+drop_col <- c("X"
+            , "user_name"
+            , "raw_timestamp_part_1"
+            , "raw_timestamp_part_2"
+            , "new_window"
+            , "num_window"
+            , "cvtd_timestamp"
+            , "problem_id")
+straining <- straining[,!(names(straining) %in% drop_col)]
+stesting <- stesting[,!(names(stesting) %in% drop_col)]
+```
+
+Build a training and a cross validation set for out of sample error prediction of the training dataset.
+
+```{r cv_train_sets}
+library(caret)
+set.seed(815)
+part <- createDataPartition(y=straining$classe,  p=0.6, list=FALSE)
+train_set <- straining[part,]; cv_set <- straining[-part,];
+```
+
+Fit the Model by RandomForest and 4fold cross-validation (trControl parameter with method cv).
+
+```{r modelFit, cache=TRUE}
+modFit <- train(classe ~ ., method="rf", data=train_set, trControl=trainControl(method="cv", number = 4), allowParallel=T)
+modFit$resample
+```
+The best cross-validated model has an accuracy of 99%.
+
+
+Get "out of sample error" estimation
+
+```{r }
+pred_cv <- predict(modFit, cv_set)
+confusionMatrix(pred_cv, cv_set$classe)$overall[1]
+``` 
+
+The (out of sample) validation performance is 99%.
+Therefore Out of sample error is 1%.
+
